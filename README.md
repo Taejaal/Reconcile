@@ -75,8 +75,8 @@ pip install rapidfuzz
 ### 2. Generate synthetic test data (optional — data files already included)
 
 ```bash
-python generate_data.py              # own dataset
-python generate_recon_dataset.py     # stress-test dataset (writes to current dir)
+python generate_data.py              # own/first dataset
+python generate_recon_dataset.py     # stress-test dataset
 ```
 
 ### 3. Run the matcher
