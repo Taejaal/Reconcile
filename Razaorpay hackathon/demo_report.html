@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reconciliation Matcher &mdash; Results Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+
+:root{
+  --bg: #0a0e14;
+  --panel: #121822;
+  --panel-alt: #0e131c;
+  --border: #202a38;
+  --text: #e9eef3;
+  --text-dim: #93a1b0;
+  --text-faint: #5b6675;
+  --cyan: #35d9c0;
+  --cyan-dim: #1c7c6f;
+  --coral: #ef6461;
+  --coral-dim: #8a3b3a;
+  --amber: #f2a93b;
+  --amber-dim: #8a6425;
+  --blue: #5c8df2;
+  --blue-dim: #35508a;
+  --radius: 8px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:"IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.num, .metric__value, .fp-card__frac, .fp-card__pct, table.ex-table td, .metrics-footnote{
+  font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  font-feature-settings:"tnum";
+}
+h1,h2,h3,h4{
+  font-family:"IBM Plex Sans", sans-serif;
+  font-weight:600;
+  margin:0;
+  letter-spacing:-0.01em;
+}
+p{margin:0;color:var(--text-dim);}
+
+/* ---------- Hero ---------- */
+.hero{
+  padding:56px 6vw 0 6vw;
+  border-bottom:1px solid var(--border);
+  background:
+    radial-gradient(1200px 400px at 15% -10%, rgba(53,217,192,0.10), transparent 60%),
+    radial-gradient(1200px 400px at 85% -10%, rgba(239,100,97,0.10), transparent 60%);
+}
+.hero__inner{max-width:900px;margin:0 auto 40px auto;text-align:left;}
+.hero__kicker{
+  color:var(--text-faint);
+  font-size:13px;
+  font-weight:500;
+  margin-bottom:14px;
+}
+.hero h1{
+  font-size:clamp(28px, 4vw, 44px);
+  line-height:1.15;
+  margin-bottom:16px;
+  max-width:16ch;
+}
+.hero__sub{
+  font-size:16px;
+  max-width:62ch;
+  color:var(--text-dim);
+}
+.metrics-row{
+  max-width:1200px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1px;
+  background:var(--border);
+  border:1px solid var(--border);
+  border-bottom:none;
+  border-radius:var(--radius) var(--radius) 0 0;
+  overflow:hidden;
+}
+@media (max-width:820px){ .metrics-row{grid-template-columns:1fr;} }
+
+.metrics-col{
+  background:var(--panel);
+  padding:32px clamp(20px,3vw,40px) 36px;
+}
+.metrics-col__head{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin-bottom:26px;
+}
+.metrics-col__dot{
+  width:10px;height:10px;border-radius:50%;
+  margin-top:6px;flex:none;
+}
+.metrics-col--cyan .metrics-col__dot{background:var(--cyan);box-shadow:0 0 12px rgba(53,217,192,0.6);}
+.metrics-col--coral .metrics-col__dot{background:var(--coral);box-shadow:0 0 12px rgba(239,100,97,0.6);}
+.metrics-col__head h2{font-size:19px;}
+.metrics-col__head p{font-size:13px;margin-top:2px;}
+
+.metrics-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:18px;
+}
+@media (max-width:560px){ .metrics-grid{grid-template-columns:repeat(2,1fr);} }
+.metric{display:flex;flex-direction:column;gap:4px;}
+.metric__value{
+  font-size:clamp(26px,3vw,34px);
+  font-weight:600;
+  color:var(--text);
+}
+.metric__value small{font-size:0.5em;color:var(--text-dim);font-weight:500;}
+.metric__label{
+  font-size:12.5px;
+  color:var(--text-dim);
+}
+.metric--emphasis .metric__value{color:var(--cyan);}
+.metrics-col--coral .metric--emphasis .metric__value{color:var(--coral);}
+
+.metrics-footnote{
+  margin-top:24px;
+  padding-top:18px;
+  border-top:1px solid var(--border);
+  font-size:13px;
+  color:var(--text-dim);
+}
+.metrics-footnote .sep{margin:0 8px;color:var(--text-faint);}
+
+/* ---------- Main / sections ---------- */
+main{max-width:1200px;margin:0 auto;padding:0 6vw;}
+.section{
+  padding:56px 0;
+  border-bottom:1px solid var(--border);
+}
+.section__head{
+  margin-bottom:26px;
+  max-width:60ch;
+}
+.section__head h2{font-size:22px;margin-bottom:6px;}
+.section__head p{font-size:14.5px;}
+
+/* ---------- Charts ---------- */
+.chart-pair{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+@media (max-width:820px){ .chart-pair{grid-template-columns:1fr;} }
+.chart-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px 22px 22px;
+}
+.chart-card__head{display:flex;align-items:center;gap:9px;margin-bottom:14px;}
+.chart-card__dot{width:8px;height:8px;border-radius:50%;}
+.chart-card--cyan .chart-card__dot{background:var(--cyan);}
+.chart-card--coral .chart-card__dot{background:var(--coral);}
+.chart-card__head h3{font-size:14.5px;font-weight:500;color:var(--text-dim);}
+.chart-card__body{position:relative;height:260px;}
+.chart-fallback{
+  display:flex;align-items:center;justify-content:center;
+  height:100%;text-align:center;font-size:12.5px;
+  color:var(--text-faint);padding:0 10px;
+}
+
+/* ---------- False positive centerpiece ---------- */
+.section--fp{
+  background:linear-gradient(180deg, rgba(239,100,97,0.05), transparent 30%);
+}
+.fp-panel{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+  border:1px solid var(--coral-dim);
+  border-radius:12px;
+  padding:22px;
+  background:var(--panel);
+  box-shadow:0 0 0 1px rgba(239,100,97,0.08), 0 20px 60px -30px rgba(239,100,97,0.4);
+}
+@media (max-width:820px){ .fp-panel{grid-template-columns:1fr;} }
+.fp-card{
+  background:var(--panel-alt);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.fp-card__top{display:flex;align-items:baseline;justify-content:space-between;}
+.fp-card__frac{font-size:30px;font-weight:600;color:var(--text);}
+.fp-card__frac span{font-size:0.55em;color:var(--text-faint);font-weight:500;}
+.fp-card__pct{font-size:14px;color:var(--text-dim);}
+.fp-card h4{font-size:15px;}
+.fp-card p{font-size:13px;line-height:1.55;}
+.fp-card--coral{border-top:3px solid var(--coral);}
+.fp-card--amber{border-top:3px solid var(--amber);}
+.fp-card--blue{border-top:3px solid var(--blue);}
+
+/* ---------- Tabs + table ---------- */
+.tabs{display:flex;gap:8px;margin-bottom:18px;}
+.tab-btn{
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  font-family:inherit;
+  font-size:13.5px;
+  font-weight:500;
+  padding:9px 16px;
+  border-radius:999px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  transition:border-color .15s ease, color .15s ease;
+}
+.tab-btn span{
+  font-family:"IBM Plex Mono", monospace;
+  font-size:11.5px;
+  background:var(--panel-alt);
+  padding:1px 7px;
+  border-radius:999px;
+  color:var(--text-faint);
+}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.is-active{color:var(--text);border-color:var(--cyan);}
+.tab-panel{display:none;}
+.tab-panel.is-active{display:block;}
+
+.table-scroll{
+  max-height:420px;
+  overflow:auto;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+table.ex-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13.5px;
+}
+table.ex-table thead th{
+  position:sticky;top:0;
+  background:var(--panel-alt);
+  text-align:left;
+  padding:11px 14px;
+  font-family:"IBM Plex Sans", sans-serif;
+  font-weight:600;
+  font-size:12px;
+  color:var(--text-dim);
+  border-bottom:1px solid var(--border);
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+}
+table.ex-table thead th:hover{color:var(--text);}
+table.ex-table thead th::after{content:"";margin-left:6px;color:var(--text-faint);}
+table.ex-table thead th.sort-asc::after{content:"\2191";}
+table.ex-table thead th.sort-desc::after{content:"\2193";}
+table.ex-table td{
+  padding:10px 14px;
+  border-bottom:1px solid var(--border);
+  color:var(--text);
+  white-space:nowrap;
+}
+table.ex-table tbody tr:last-child td{border-bottom:none;}
+table.ex-table tbody tr:hover{background:rgba(255,255,255,0.02);}
+table.ex-table .empty-row td{color:var(--text-faint);white-space:normal;font-family:"IBM Plex Sans",sans-serif;padding:24px 14px;}
+
+/* ---------- Limitations ---------- */
+.limitations{
+  border:1px solid var(--amber-dim);
+  background:linear-gradient(180deg, rgba(242,169,59,0.06), transparent 60%);
+  border-radius:12px;
+  padding:24px 26px;
+}
+.limitations__head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.limitations__mark{color:var(--amber);font-size:18px;}
+.limitations__head h2{font-size:16px;color:var(--amber);}
+.limitations ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:9px;}
+.limitations li{font-size:14px;color:var(--text-dim);}
+
+/* ---------- Threshold Sweep ---------- */
+.section--sweep{
+  background:linear-gradient(180deg, rgba(92,141,242,0.05), transparent 30%);
+}
+.sweep-panel{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+@media (max-width:820px){ .sweep-panel{grid-template-columns:1fr;} }
+.sweep-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px 22px 22px;
+}
+.sweep-card--cyan{border-top:3px solid var(--cyan);}
+.sweep-card--coral{border-top:3px solid var(--coral);}
+.sweep-card__head{display:flex;align-items:center;gap:9px;margin-bottom:14px;}
+.sweep-card__head h3{font-size:14.5px;font-weight:500;color:var(--text-dim);}
+.sweep-stats{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:12px;
+  margin-bottom:16px;
+}
+.sweep-stat{display:flex;flex-direction:column;gap:2px;}
+.sweep-stat__val{
+  font-family:"IBM Plex Mono", monospace;
+  font-size:22px;font-weight:600;color:var(--text);
+}
+.sweep-stat__label{font-size:11.5px;color:var(--text-dim);}
+.sweep-stat__range{font-family:"IBM Plex Mono", monospace;font-size:11px;color:var(--text-faint);}
+.sweep-stat--overlap .sweep-stat__val{color:var(--coral);}
+.sweep-verdict{
+  margin-top:14px;
+  padding:12px 16px;
+  border-radius:var(--radius);
+  border:1px solid var(--border);
+  background:var(--panel-alt);
+}
+.sweep-verdict p{font-size:13px;line-height:1.55;}
+.verdict--fail{border-left:3px solid var(--coral);}
+.verdict--pass{border-left:3px solid var(--cyan);}
+.sweep-scores{
+  margin-top:12px;
+  font-family:"IBM Plex Mono", monospace;
+  font-size:11px;
+  color:var(--text-faint);
+  display:flex;flex-direction:column;gap:4px;
+}
+.sweep-scores p{color:var(--text-faint);font-size:11px;}
+.sweep-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+.sweep-dot--fp{background:var(--coral);}
+.sweep-dot--rescue{background:var(--cyan);}
+.sweep-conclusion{
+  margin-top:20px;
+  padding:16px 20px;
+  border:1px solid var(--blue-dim);
+  border-radius:var(--radius);
+  background:var(--panel);
+  display:flex;align-items:flex-start;gap:12px;
+}
+.sweep-conclusion__icon{font-size:20px;flex:none;margin-top:1px;}
+.sweep-conclusion p{font-size:14px;color:var(--text-dim);line-height:1.55;}
+
+/* ---------- Footer ---------- */
+.footer{
+  text-align:center;
+  padding:30px 6vw 50px;
+  color:var(--text-faint);
+  font-size:12.5px;
+}
+
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero__inner">
+    <p class="hero__kicker">AI Finance Controller &mdash; Razorpay Buildathon</p>
+    <h1>Bank Statement &harr; Ledger Reconciliation Matcher</h1>
+    <p class="hero__sub">Same matcher, two datasets: a synthetic set we built ourselves, and an independently generated adversarial stress test. Numbers below are reported side by side so the gap is visible, not smoothed over.</p>
+  </div>
+  <div class="metrics-row">
+    
+    <div class="metrics-col metrics-col--cyan">
+      <div class="metrics-col__head">
+        <span class="metrics-col__dot"></span>
+        <div>
+          <h2>Own Dataset</h2>
+          <p>Synthetic, self-generated</p>
+        </div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric">
+          <span class="metric__value">70.9<small>%</small></span>
+          <span class="metric__label">Match rate</span>
+        </div>
+        <div class="metric">
+          <span class="metric__value">79.3<small>%</small></span>
+          <span class="metric__label">Precision</span>
+        </div>
+        <div class="metric">
+          <span class="metric__value">95.8<small>%</small></span>
+          <span class="metric__label">Recall</span>
+        </div>
+        <div class="metric metric--emphasis">
+          <span class="metric__value">86.8<small>%</small></span>
+          <span class="metric__label">F1 score</span>
+        </div>
+      </div>
+      <div class="metrics-footnote">
+        <span>46 TP</span><span class="sep">&middot;</span>
+        <span>10 FP</span><span class="sep">&middot;</span>
+        <span>2 FN</span><span class="sep">&middot;</span>
+        <span>48 true matches</span>
+      </div>
+    </div>
+    
+    <div class="metrics-col metrics-col--coral">
+      <div class="metrics-col__head">
+        <span class="metrics-col__dot"></span>
+        <div>
+          <h2>Stress-Test Dataset</h2>
+          <p>Independently generated, adversarial</p>
+        </div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric">
+          <span class="metric__value">64.8<small>%</small></span>
+          <span class="metric__label">Match rate</span>
+        </div>
+        <div class="metric">
+          <span class="metric__value">77.2<small>%</small></span>
+          <span class="metric__label">Precision</span>
+        </div>
+        <div class="metric">
+          <span class="metric__value">71.0<small>%</small></span>
+          <span class="metric__label">Recall</span>
+        </div>
+        <div class="metric metric--emphasis">
+          <span class="metric__value">73.9<small>%</small></span>
+          <span class="metric__label">F1 score</span>
+        </div>
+      </div>
+      <div class="metrics-footnote">
+        <span>44 TP</span><span class="sep">&middot;</span>
+        <span>13 FP</span><span class="sep">&middot;</span>
+        <span>18 FN</span><span class="sep">&middot;</span>
+        <span>62 true matches</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Confidence tier breakdown</h2>
+      <p>Every matched pair lands in AUTO_MATCH or NEEDS_REVIEW; unresolved records fall through to EXCEPTION.</p>
+    </div>
+    <div class="chart-pair">
+      
+        <div class="chart-card chart-card--cyan">
+          <div class="chart-card__head">
+            <span class="chart-card__dot"></span>
+            <h3>Own Dataset</h3>
+          </div>
+          <div class="chart-card__body">
+            <canvas id="tier-own"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card chart-card--coral">
+          <div class="chart-card__head">
+            <span class="chart-card__dot"></span>
+            <h3>Stress-Test Dataset</h3>
+          </div>
+          <div class="chart-card__body">
+            <canvas id="tier-stress"></canvas>
+          </div>
+        </div>
+    </div>
+  </section>
+
+  <section class="section section--sweep">
+    <div class="section__head">
+      <h2>Threshold sweep diagnostic</h2>
+      <p>Can a text-score floor cleanly separate coincidence false positives from genuine garbled-text rescues in the MONEY_DATE_LOCK rule? We swept every matched pair to find out.</p>
+    </div>
+    <div class="sweep-panel">
+      
+        <div class="sweep-card sweep-card--cyan">
+          <div class="sweep-card__head">
+            <span class="chart-card__dot"></span>
+            <h3>Own Dataset</h3>
+          </div>
+          <div class="sweep-stats">
+            <div class="sweep-stat">
+              <span class="sweep-stat__val">7</span>
+              <span class="sweep-stat__label">False-positive scores</span>
+              <span class="sweep-stat__range">0.391 – 0.679</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat__val">17</span>
+              <span class="sweep-stat__label">Genuine rescue scores</span>
+              <span class="sweep-stat__range">0.486 – 1.000</span>
+            </div>
+            <div class="sweep-stat sweep-stat--overlap">
+              <span class="sweep-stat__val">3</span>
+              <span class="sweep-stat__label">Overlapping scores</span>
+            </div>
+          </div>
+          <div class="chart-card__body" style="height:200px;">
+            <canvas id="sweep-own"></canvas>
+          </div>
+          <div class="sweep-verdict verdict--fail">
+            <p>No clean gap — 3 false-positive scores overlap with genuine rescues. A text floor would trade recall for precision.</p>
+          </div>
+          <div class="sweep-scores">
+            <p><span class="sweep-dot sweep-dot--fp"></span> FP: [0.391, 0.4, 0.449, 0.455, 0.522, 0.524, 0.679]</p>
+            <p><span class="sweep-dot sweep-dot--rescue"></span> Rescue: [0.486, 0.5, 0.629, 0.756, 0.912, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]</p>
+          </div>
+        </div>
+
+        <div class="sweep-card sweep-card--coral">
+          <div class="sweep-card__head">
+            <span class="chart-card__dot"></span>
+            <h3>Stress-Test Dataset</h3>
+          </div>
+          <div class="sweep-stats">
+            <div class="sweep-stat">
+              <span class="sweep-stat__val">9</span>
+              <span class="sweep-stat__label">False-positive scores</span>
+              <span class="sweep-stat__range">0.204 – 0.691</span>
+            </div>
+            <div class="sweep-stat">
+              <span class="sweep-stat__val">25</span>
+              <span class="sweep-stat__label">Genuine rescue scores</span>
+              <span class="sweep-stat__range">0.294 – 0.809</span>
+            </div>
+            <div class="sweep-stat sweep-stat--overlap">
+              <span class="sweep-stat__val">7</span>
+              <span class="sweep-stat__label">Overlapping scores</span>
+            </div>
+          </div>
+          <div class="chart-card__body" style="height:200px;">
+            <canvas id="sweep-stress"></canvas>
+          </div>
+          <div class="sweep-verdict verdict--fail">
+            <p>No clean gap — 7 false-positive scores overlap with genuine rescues. A text floor would trade recall for precision.</p>
+          </div>
+          <div class="sweep-scores">
+            <p><span class="sweep-dot sweep-dot--fp"></span> FP: [0.204, 0.254, 0.308, 0.344, 0.421, 0.423, 0.623, 0.667, 0.691]</p>
+            <p><span class="sweep-dot sweep-dot--rescue"></span> Rescue: [0.294, 0.312, 0.339, 0.348, 0.364, 0.417, 0.435, 0.469, 0.511, 0.524, 0.585, 0.604, 0.617, 0.625, 0.667, 0.679, 0.684, 0.69, 0.691, 0.717, 0.727, 0.73, 0.792, 0.8, 0.809]</p>
+          </div>
+        </div>
+    </div>
+    <div class="sweep-conclusion">
+      <span class="sweep-conclusion__icon">&#128270;</span>
+      <p><strong>Conclusion:</strong> No safe text-score threshold exists — the false-positive and genuine-rescue distributions overlap. The real production fix is an independent field (customer/account ID), not a stricter text threshold. This is documented as a known limitation, not hidden.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Matching rule frequency</h2>
+      <p>Which rule in the cascade actually closed each match.</p>
+    </div>
+    <div class="chart-pair">
+      
+        <div class="chart-card chart-card--cyan">
+          <div class="chart-card__head">
+            <span class="chart-card__dot"></span>
+            <h3>Own Dataset</h3>
+          </div>
+          <div class="chart-card__body">
+            <canvas id="rule-own"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card chart-card--coral">
+          <div class="chart-card__head">
+            <span class="chart-card__dot"></span>
+            <h3>Stress-Test Dataset</h3>
+          </div>
+          <div class="chart-card__body">
+            <canvas id="rule-stress"></canvas>
+          </div>
+        </div>
+    </div>
+  </section>
+
+  <section class="section section--fp">
+    <div class="section__head">
+      <h2>False positive root cause</h2>
+      <p>Where the false positives actually come from, and which ones are fixable.</p>
+    </div>
+    <div class="fp-panel">
+      
+        <div class="fp-card fp-card--coral">
+          <div class="fp-card__top">
+            <span class="fp-card__frac">9<span>/14</span></span>
+            <span class="fp-card__pct">64%</span>
+          </div>
+          <h4>Structural decoys</h4>
+          <p>Unrelated transactions with coincidentally matching amount and date; not fixable without an extra data field.</p>
+        </div>
+
+        <div class="fp-card fp-card--amber">
+          <div class="fp-card__top">
+            <span class="fp-card__frac">4<span>/14</span></span>
+            <span class="fp-card__pct">29%</span>
+          </div>
+          <h4>Stolen match</h4>
+          <p>Fixed by switching from greedy to optimal (Hungarian) assignment.</p>
+        </div>
+
+        <div class="fp-card fp-card--blue">
+          <div class="fp-card__top">
+            <span class="fp-card__frac">1<span>/14</span></span>
+            <span class="fp-card__pct">7%</span>
+          </div>
+          <h4>Cross-mismatch</h4>
+          <p>Also fixed by the same greedy-to-optimal assignment change.</p>
+        </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section__head">
+      <h2>Exceptions</h2>
+      <p>Unresolved records that need a human to close them out.</p>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn is-active" data-target="ex-own">Own dataset <span>23</span></button>
+      <button class="tab-btn" data-target="ex-stress">Stress-test dataset <span>32</span></button>
+    </div>
+    <div class="tab-panel is-active" id="ex-own">
+      <div class="table-scroll">
+    <table class="ex-table" data-count="23">
+      <thead><tr><th data-col="0">Bank Txn Id</th><th data-col="1">Ledger Txn Id</th><th data-col="2">Amount</th><th data-col="3">Date</th><th data-col="4">Narration</th><th data-col="5">Category</th></tr></thead>
+      <tbody><tr><td>TXN1090</td><td></td><td>78489.09</td><td>2026-08-28</td><td>Refund - BookMyShow</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>TXN1117</td><td></td><td>33942.41</td><td>2026-08-08</td><td>Vendor Settlement - Lakshmi Iyer</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>TXN1088</td><td></td><td>16289.23</td><td>2026-08-07</td><td>Salary Credit - BookMyShow</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>TXN1114</td><td></td><td>79252.22</td><td>2026-08-30</td><td>Vendor Settlement - Zomato</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>TXN1089</td><td></td><td>15718.96</td><td>2026-08-14</td><td>Vendor Settlement - Airtel Payments</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>TXN1123</td><td></td><td>123904.39</td><td>2026-08-01</td><td>Vendor Settlement - Karan Mehta</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>TXN1120</td><td></td><td>90923.34</td><td>2026-08-15</td><td>Vendor Settlement - Vikram Rao</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td></td><td>TXN1122</td><td>63945.7</td><td>2026-08-15</td><td>Invoice Payment - Vikram Rao</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1096</td><td>59255.79</td><td>2026-08-14</td><td>Salary Credit - Nykaa</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1058</td><td>78084.17</td><td>2026-08-21</td><td>Transfer - Zomato</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1121</td><td>26977.64</td><td>2026-08-15</td><td>Invoice Payment - Vikram Rao</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1113</td><td>7106.29</td><td>2026-08-20</td><td>Purchase - DMart Online</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1125</td><td>84868.86</td><td>2026-08-01</td><td>Invoice Payment - Karan Mehta</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1119</td><td>11255.02</td><td>2026-08-08</td><td>Invoice Payment - Lakshmi Iyer</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1116</td><td>56976.25</td><td>2026-08-30</td><td>Invoice Payment - Zomato</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1093</td><td>41356.65</td><td>2026-08-14</td><td>Service Charge - Neha Kapoor</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1124</td><td>39035.53</td><td>2026-08-01</td><td>Invoice Payment - Karan Mehta</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1094</td><td>5125.21</td><td>2026-08-29</td><td>Invoice Payment - BigBasket</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1118</td><td>22687.39</td><td>2026-08-08</td><td>Invoice Payment - Lakshmi Iyer</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1115</td><td>22275.97</td><td>2026-08-30</td><td>Invoice Payment - Zomato</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1097</td><td>25325.66</td><td>2026-08-07</td><td>Invoice Payment - Sneha Iyer</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1104</td><td>81672.09</td><td>2026-08-02</td><td>Salary Credit - Ananya Das</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>TXN1095</td><td>22652.48</td><td>2026-08-13</td><td>Subscription Fee - Airtel Payments</td><td>UNMATCHED_LEDGER_ENTRY</td></tr></tbody>
+    </table></div>
+    </div>
+    <div class="tab-panel" id="ex-stress">
+      <div class="table-scroll">
+    <table class="ex-table" data-count="32">
+      <thead><tr><th data-col="0">Bank Txn Id</th><th data-col="1">Ledger Txn Id</th><th data-col="2">Amount</th><th data-col="3">Date</th><th data-col="4">Narration</th><th data-col="5">Category</th></tr></thead>
+      <tbody><tr><td>BNK0060</td><td></td><td>92206.48</td><td>2024-03-16</td><td>IMPS-588986609-INFOSYS PVT LTD</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0050</td><td></td><td>82209.1</td><td>2024-02-17</td><td>NEFT/614356428/ARJUN CHOPRA</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0031</td><td></td><td>148177.25</td><td>2024-03-02</td><td>UPI/ASIAN PAINTS PVT.LTD/036414160/PAYMENT</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0049</td><td></td><td>42815.38</td><td>2024-03-02</td><td>IMPS-668883377800-HCL TECHNOLOGIES LTD</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0051</td><td></td><td>113199.21</td><td>2024-02-17</td><td>RTGS/ASIAN PAINTS LIMITED/731919879</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0029</td><td></td><td>104235.67</td><td>2024-03-11</td><td>NEFT/380131243/HINDUSTAN UNILEVER LIMITED</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0059</td><td></td><td>239177.84</td><td>2024-03-20</td><td>PYMT-PRIYA SHARMA-313678796352</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0058</td><td></td><td>182538.32</td><td>2024-02-27</td><td>IMPS-463190800-NYKAA FASHION PVT.LTD</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0056</td><td></td><td>211900.99</td><td>2024-03-06</td><td>RTGS/RELIANCE RETAIL LTD/649006026</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0055</td><td></td><td>13573.55</td><td>2024-02-07</td><td>IMPS-410435426796-RELIANCE RETAIL LIMITED</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td>BNK0048</td><td></td><td>53803.2</td><td>2024-03-22</td><td>PYMT-ZOMATO PVT LTD-785684437</td><td>UNMATCHED_BANK_ENTRY</td></tr>
+<tr><td></td><td>LED0054</td><td>36057.43</td><td>2024-02-13</td><td>Invoice 492763666768 - ARJUN CHOPRA</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0049</td><td>20801.77</td><td>2024-03-19</td><td>ZOMATO PVT LTD - Services rendered</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0056</td><td>36647.91</td><td>2024-02-15</td><td>ASIAN PAINTS LIMITED - Services rendered</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0059</td><td>15607.25</td><td>2024-02-19</td><td>Settlement - HCL TECHNOLOGIES PVT.LTD (044903498065)</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0070</td><td>48878.97</td><td>2024-03-10</td><td>Invoice 396112117 - INFOSYS PVT LTD.</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0031</td><td>148177.25</td><td>2024-02-24</td><td>Invoice 036414160 - ASIAN PAINTS PVT.LTD</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0053</td><td>27006.79</td><td>2024-02-14</td><td>Invoice 133260830 - ARJUN CHOPRA</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0065</td><td>230423.61</td><td>2024-02-13</td><td>ASIAN PAINTS - Services rendered</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0047</td><td>3113.96</td><td>2024-02-25</td><td>ARJUN CHOPRA - Services rendered</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0051</td><td>31479.49</td><td>2024-03-01</td><td>Payment received from HCL TECHNOLOGIES LTD</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0066</td><td>180538.19</td><td>2024-02-13</td><td>Settlement - WIPRO PVT LTD (581700446425)</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0068</td><td>208421.87</td><td>2024-03-16</td><td>MAHINDRA AND MAHINDRA PVT LTD. - Services rendered</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0057</td><td>37823.32</td><td>2024-02-15</td><td>Invoice 646936 - ASIAN PAINTS LIMITED</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0069</td><td>43382.36</td><td>2024-02-15</td><td>Invoice 463414408727 - APOLLO HOSPITALS LTD</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0061</td><td>196851.04</td><td>2024-01-21</td><td>Payment received from ARJUN CHOPRA</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0055</td><td>19144.88</td><td>2024-02-17</td><td>Settlement - ARJUN CHOPRA (703193427)</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0052</td><td>11335.89</td><td>2024-02-27</td><td>HCL TECHNOLOGIES LTD - Services rendered</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0058</td><td>38727.98</td><td>2024-02-14</td><td>ASIAN PAINTS LIMITED - Services rendered</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0050</td><td>33001.43</td><td>2024-03-19</td><td>Payment received from ZOMATO PVT LTD</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0064</td><td>33384.91</td><td>2024-01-08</td><td>Settlement - SURESH IYER (283190811216)</td><td>UNMATCHED_LEDGER_ENTRY</td></tr>
+<tr><td></td><td>LED0024</td><td>137210.33</td><td>2024-02-25</td><td>Settlement - SUNITA RAO (956365163715)</td><td>UNMATCHED_LEDGER_ENTRY</td></tr></tbody>
+    </table></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="limitations">
+      <div class="limitations__head">
+        <span class="limitations__mark">&#9888;</span>
+        <h2>Known limitations</h2>
+      </div>
+      <ul><li>The matcher does not see a merchant-category or account-ID field, so structural decoys (same amount, same date, different counterparty) cannot currently be told apart from a true match.</li><li>Greedy assignment is used instead of optimal (Hungarian) assignment, which accounts for 5 of the 14 false positives observed on the stress-test dataset.</li><li>One-to-many splits (one bank deposit covering multiple ledger invoices) are not handled by the pairwise matching architecture.</li><li>Text similarity is not currency/locale-aware and does not normalize merchant name variants or abbreviations beyond prefix/suffix stripping.</li></ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>Generated report &mdash; reconciliation matcher, own vs. stress-test dataset.</p>
+</footer>
+
+<script>
+
+const CHART_COLORS = {
+  cyan: "#35d9c0",
+  coral: "#ef6461",
+  amber: "#f2a93b",
+  blue: "#5c8df2",
+  faint: "#5b6675",
+  grid: "#202a38",
+  text: "#93a1b0"
+};
+
+// Charts are progressive enhancement: if the Chart.js CDN can't be reached
+// (offline demo room, blocked script, etc.) the tabs/sorting below must
+// still work, so every Chart.js call is guarded behind this flag instead
+// of letting a ReferenceError stop the whole script.
+const CHARTS_AVAILABLE = typeof Chart !== "undefined";
+if (CHARTS_AVAILABLE) {
+  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+  Chart.defaults.color = CHART_COLORS.text;
+} else {
+  console.warn("Chart.js did not load (offline?) -- skipping charts, everything else still works.");
+  document.querySelectorAll(".chart-card__body").forEach(el => {
+    el.innerHTML = '<p class="chart-fallback">Chart.js could not be loaded from the CDN (no internet connection). The underlying numbers are still in the tables below.</p>';
+  });
+}
+
+function donut(canvasId, labels, values, accentColor){
+  if (!CHARTS_AVAILABLE) return;
+  const el = document.getElementById(canvasId);
+  if(!el) return;
+  const palette = [accentColor, "#f2a93b", "#5c8df2", "#5b6675"];
+  new Chart(el, {
+    type: "doughnut",
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+        borderColor: "#0e131c",
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      cutout: "62%",
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { boxWidth: 10, boxHeight: 10, padding: 14, font: { size: 11.5 } }
+        }
+      }
+    }
+  });
+}
+
+function bar(canvasId, labels, values, accentColor){
+  if (!CHARTS_AVAILABLE) return;
+  const el = document.getElementById(canvasId);
+  if(!el) return;
+  new Chart(el, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: accentColor,
+        borderRadius: 4,
+        maxBarThickness: 34
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      indexAxis: "y",
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: CHART_COLORS.grid }, ticks: { precision: 0 } },
+        y: { grid: { display: false }, ticks: { font: { family: "IBM Plex Sans", size: 11.5 } } }
+      }
+    }
+  });
+}
+
+const REPORT_DATA = {"own": {"tier_labels": ["AUTO_MATCH", "NEEDS_REVIEW", "EXCEPTION"], "tier_values": [52, 4, 23], "rule_labels": ["EXACT_ID_MATCH", "EXACT_CONTENT_MATCH", "MONEY_DATE_LOCK", "TEXT_LOCK", "WEIGHTED_FALLBACK"], "rule_values": [0, 25, 24, 3, 4]}, "stress": {"tier_labels": ["AUTO_MATCH", "NEEDS_REVIEW", "EXCEPTION"], "tier_values": [42, 17, 32], "rule_labels": ["EXACT_ID_MATCH", "EXACT_CONTENT_MATCH", "MONEY_DATE_LOCK", "TEXT_LOCK", "WEIGHTED_FALLBACK"], "rule_values": [0, 8, 34, 0, 17]}, "sweep": {"own": {"fp_scores": [0.391, 0.4, 0.449, 0.455, 0.522, 0.524, 0.679], "rescue_scores": [0.486, 0.5, 0.629, 0.756, 0.912, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]}, "stress": {"fp_scores": [0.204, 0.254, 0.308, 0.344, 0.421, 0.423, 0.623, 0.667, 0.691], "rescue_scores": [0.294, 0.312, 0.339, 0.348, 0.364, 0.417, 0.435, 0.469, 0.511, 0.524, 0.585, 0.604, 0.617, 0.625, 0.667, 0.679, 0.684, 0.69, 0.691, 0.717, 0.727, 0.73, 0.792, 0.8, 0.809]}}};
+
+donut("tier-own", REPORT_DATA.own.tier_labels, REPORT_DATA.own.tier_values, CHART_COLORS.cyan);
+donut("tier-stress", REPORT_DATA.stress.tier_labels, REPORT_DATA.stress.tier_values, CHART_COLORS.coral);
+bar("rule-own", REPORT_DATA.own.rule_labels, REPORT_DATA.own.rule_values, CHART_COLORS.cyan);
+bar("rule-stress", REPORT_DATA.stress.rule_labels, REPORT_DATA.stress.rule_values, CHART_COLORS.coral);
+
+// Sweep scatter charts
+function sweepScatter(canvasId, fpScores, rescueScores, accentColor) {
+  if (!CHARTS_AVAILABLE) return;
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  const fpData = fpScores.map((v, i) => ({x: v, y: 0.3 + Math.random() * 0.15}));
+  const rescueData = rescueScores.map((v, i) => ({x: v, y: 0.6 + Math.random() * 0.15}));
+  new Chart(el, {
+    type: "scatter",
+    data: {
+      datasets: [
+        {
+          label: "False positives",
+          data: fpData,
+          backgroundColor: CHART_COLORS.coral + "cc",
+          borderColor: CHART_COLORS.coral,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+        },
+        {
+          label: "Genuine rescues",
+          data: rescueData,
+          backgroundColor: accentColor + "cc",
+          borderColor: accentColor,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+        }
+      ]
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: { display: true, text: "text_score", font: { size: 11 } },
+          min: 0, max: 1.05,
+          grid: { color: CHART_COLORS.grid },
+        },
+        y: {
+          display: false,
+          min: 0, max: 1,
+        }
+      },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 11 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ctx.dataset.label + ": " + ctx.parsed.x.toFixed(3); }
+          }
+        }
+      }
+    }
+  });
+}
+
+const SWEEP = REPORT_DATA.sweep;
+sweepScatter("sweep-own", SWEEP.own.fp_scores, SWEEP.own.rescue_scores, CHART_COLORS.cyan);
+sweepScatter("sweep-stress", SWEEP.stress.fp_scores, SWEEP.stress.rescue_scores, CHART_COLORS.coral);
+
+// Tabs
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("is-active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("is-active"));
+    btn.classList.add("is-active");
+    document.getElementById(btn.dataset.target).classList.add("is-active");
+  });
+});
+
+// Sortable tables (click a header to sort by that column, click again to reverse)
+document.querySelectorAll("table.ex-table").forEach(table => {
+  const headers = table.querySelectorAll("thead th");
+  headers.forEach((th, colIndex) => {
+    let dir = null;
+    th.addEventListener("click", () => {
+      const tbody = table.querySelector("tbody");
+      if (tbody.querySelector(".empty-row")) return;
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+      dir = dir === "asc" ? "desc" : "asc";
+      headers.forEach(h => h.classList.remove("sort-asc", "sort-desc"));
+      th.classList.add(dir === "asc" ? "sort-asc" : "sort-desc");
+      rows.sort((a, b) => {
+        const av = a.children[colIndex].textContent.trim();
+        const bv = b.children[colIndex].textContent.trim();
+        const an = parseFloat(av.replace(/,/g, ""));
+        const bn = parseFloat(bv.replace(/,/g, ""));
+        let cmp;
+        if (!isNaN(an) && !isNaN(bn)) { cmp = an - bn; }
+        else { cmp = av.localeCompare(bv); }
+        return dir === "asc" ? cmp : -cmp;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+});
+
+</script>
+</body>
+</html>
