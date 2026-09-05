@@ -180,5 +180,3 @@ Only Python stdlib is needed for the report generator — no pip install.
 - Text similarity is not currency/locale-aware and does not normalize merchant name variants or abbreviations beyond prefix/suffix stripping.
 
 ---
-
-*Built for the Razorpay Buildathon (AI Finance Controller track).*
